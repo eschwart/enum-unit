@@ -1,0 +1,19 @@
+[package]
+name = "enum-unit"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Evan Schwartzentruber <evandotschwartzentruber@gmail.com>"]
+description = "Generates unit-variant enums from existing enums."
+exclude = [".github/", ".gitignore", "LICENSE", "README.md", "tests/"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.37"
+syn = "2.0.85"
+
+[profile.release]
+lto = true
+codegen-units = 1

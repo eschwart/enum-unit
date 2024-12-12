@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput};
+use syn::{parse_macro_input, Data, DeriveInput, Fields};
 
 #[proc_macro_derive(EnumUnit)]
 pub fn into_unit_enum(input: TokenStream) -> TokenStream {
@@ -19,9 +19,32 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
     let new_enum_name = quote::format_ident!("{}Unit", old_enum_name);
 
     // Create the variants for the new enum (copied from the original)
-    let flag_arms = variants.into_iter().map(|variant| {
+    let flag_arms = variants.iter().map(|variant| {
         let ident = &variant.ident;
         quote! { #ident, }
+    });
+
+    let match_arms = variants.iter().map(|variant| {
+        let ident = &variant.ident;
+
+        // Handle tuple and struct variants
+        match &variant.fields {
+            Fields::Unit => {
+                quote! {
+                    #old_enum_name::#ident => #new_enum_name::#ident,
+                }
+            }
+            Fields::Unnamed(_) => {
+                quote! {
+                    #old_enum_name::#ident(..) => #new_enum_name::#ident,
+                }
+            }
+            Fields::Named(_) => {
+                quote! {
+                    #old_enum_name::#ident { .. } => #new_enum_name::#ident,
+                }
+            }
+        }
     });
 
     let doc_comment = format!(
@@ -31,9 +54,17 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
 
     quote! {
         #[doc = #doc_comment]
-        #[derive(Clone, Copy, Debug)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
         pub enum #new_enum_name {
             #(#flag_arms)*
+        }
+
+        impl From<#old_enum_name> for #new_enum_name {
+            fn from(value: #old_enum_name) -> Self {
+                match value {
+                    #(#match_arms)*
+                }
+            }
         }
     }
     .into()

@@ -1,4 +1,5 @@
 # enum-unit
+[![Crate](https://img.shields.io/crates/v/enum-unit.svg)](https://crates.io/crates/enum-unit)
 
 ## Description
 Generates unit-variant enums from existing enums.

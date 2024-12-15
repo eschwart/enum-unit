@@ -7,7 +7,7 @@ repository = "https://github.com/splurf/enum-unit"
 authors = ["Evan Schwartzentruber <evandotschwartzentruber@gmail.com>"]
 description = "Generates unit-variant enums from existing enums."
 keywords = ["enum", "procedural-macro", "unit-variant", "derive", "bitflags"]
-categories = ["Rust patterns"]
+categories = ["rust-patterns"]
 exclude = [".github/", ".gitignore", "LICENSE", "README.md", "tests/"]
 
 [lib]

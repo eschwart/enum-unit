@@ -18,12 +18,6 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
     let old_enum_name = input.ident;
     let new_enum_name = quote::format_ident!("{}Unit", old_enum_name);
 
-    // Create the variants for the new enum (copied from the original)
-    let flag_arms = variants.iter().map(|variant| {
-        let ident = &variant.ident;
-        quote! { #ident, }
-    });
-
     let match_arms = variants.iter().map(|variant| {
         let ident = &variant.ident;
 
@@ -52,13 +46,59 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
         old_enum_name
     );
 
-    quote! {
-        #[doc = #doc_comment]
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-        pub enum #new_enum_name {
-            #(#flag_arms)*
-        }
+    #[cfg(not(feature = "bitflag"))]
+    let new_enum = {
+        let flag_arms = variants.iter().map(|variant| {
+            let ident = &variant.ident;
+            quote! { #ident, }
+        });
 
+        quote! {
+            #[doc = #doc_comment]
+            #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+            pub enum #new_enum_name {
+                #(#flag_arms)*
+            }
+        }
+    };
+
+    #[cfg(feature = "bitflag")]
+    let new_enum = {
+        let n = variants.len();
+
+        let size = if n <= 8 {
+            quote! { u8 }
+        } else if n <= 16 {
+            quote! { u16 }
+        } else if n <= 32 {
+            quote! { u32 }
+        } else if n <= 64 {
+            quote! { u64 }
+        } else if n <= 128 {
+            quote! { u128 }
+        } else {
+            return quote! { compile_error!("Enum has too many variants."); }.into();
+        };
+
+        let flag_arms = variants.iter().enumerate().map(|(i, variant)| {
+            let ident = &variant.ident;
+            quote! {
+                const #ident = 1 << #i;
+            }
+        });
+
+        quote! {
+            ::bitflags::bitflags! {
+                #[doc = #doc_comment]
+                #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+                pub struct #new_enum_name: #size {
+                    #(#flag_arms)*
+                }
+            }
+        }
+    };
+
+    let new_enum_impl = quote! {
         impl From<#old_enum_name> for #new_enum_name {
             fn from(value: #old_enum_name) -> Self {
                 match value {
@@ -66,6 +106,11 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
                 }
             }
         }
+    };
+
+    quote! {
+        #new_enum
+        #new_enum_impl
     }
     .into()
 }

@@ -21,3 +21,6 @@ fn main() {
     assert_eq!(ExampleUnit::B, b.into());
 }
 ```
+
+## Features
+Enable the `bitflag` feature to use the enum-units as bitflags as well.

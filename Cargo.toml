@@ -1,6 +1,6 @@
 [package]
 name = "enum-unit"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "MIT"
 authors = ["Evan Schwartzentruber <evandotschwartzentruber@gmail.com>"]
@@ -11,8 +11,13 @@ exclude = [".github/", ".gitignore", "LICENSE", "README.md", "tests/"]
 proc-macro = true
 
 [dependencies]
+bitflags = { version = "2.6.0", optional = true }
 quote = "1.0.37"
 syn = "2.0.90"
+
+[features]
+default = []
+bitflag = ["bitflags"]
 
 [profile.release]
 lto = true

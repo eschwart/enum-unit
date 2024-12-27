@@ -98,12 +98,21 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
         }
     };
 
+    let doc_comment = format!("The [`{}`] of this [`{}`].", new_enum_name, old_enum_name);
+
     let new_enum_impl = quote! {
-        impl From<#old_enum_name> for #new_enum_name {
-            fn from(value: #old_enum_name) -> Self {
-                match value {
+        impl #old_enum_name {
+            #[doc = #doc_comment]
+            pub const fn kind(&self) -> #new_enum_name {
+                match self {
                     #(#match_arms)*
                 }
+            }
+        }
+
+        impl From<#old_enum_name> for #new_enum_name {
+            fn from(value: #old_enum_name) -> Self {
+                value.kind()
             }
         }
     };

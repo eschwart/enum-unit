@@ -1,6 +1,6 @@
 [package]
 name = "enum-unit"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/splurf/enum-unit"
@@ -15,11 +15,10 @@ proc-macro = true
 
 [dependencies]
 bitflags = { version = "2.6.0", optional = true }
-quote = "1.0.37"
-syn = "2.0.90"
+quote = "1.0.38"
+syn = { version = "2.0.92", default-features = false, features = ["derive", "parsing", "proc-macro"] }
 
 [features]
-default = []
 bitflag = ["bitflags"]
 
 [profile.release]

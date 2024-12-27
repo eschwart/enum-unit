@@ -14,9 +14,9 @@ fn test_stable() {
     let b = Example::B(69);
     let c = Example::C { id: "Unit" };
 
-    assert_eq!(ExampleUnit::from(a), ExampleUnit::A);
-    assert_eq!(ExampleUnit::from(b), ExampleUnit::B);
-    assert_eq!(ExampleUnit::from(c), ExampleUnit::C);
+    assert_eq!(a.kind(), ExampleUnit::A);
+    assert_eq!(b.kind(), ExampleUnit::B);
+    assert_eq!(c.kind(), ExampleUnit::C);
 
     #[cfg(feature = "bitflag")]
     {

@@ -23,5 +23,8 @@ fn main() {
 }
 ```
 
-## Features
-Enable the `bitflag` feature to use the enum-units as bitflags as well.
+## Optional Features
+| Name | Description |
+| ---- | ----------- |
+| [bitflags](https://crates.io/crates/bitflags) | Units have [bitflag](https://docs.rs/bitflags/2.8.0/bitflags/#generating-flags-types) functionality. |
+| [serde](https://crates.io/crates/serde) | Units implement `Serialize` and `Deserialize`. |

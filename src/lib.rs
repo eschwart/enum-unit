@@ -11,13 +11,19 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
     let variants = if let Data::Enum(data_enum) = input.data {
         data_enum.variants
     } else {
-        // return empty if not an enum
         return quote! { compile_error!("Unsupported structure (enum's only)") }.into();
     };
 
+    // return nothing if there are no variants
+    if variants.is_empty() {
+        return quote! {}.into();
+    }
+
+    // prepare names for each enumeration
     let old_enum_name = input.ident;
     let new_enum_name = quote::format_ident!("{}Unit", old_enum_name);
 
+    // obtain names of every variant
     let match_arms = variants.iter().map(|variant| {
         let ident = &variant.ident;
 
@@ -41,12 +47,24 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
         }
     });
 
+    // primitive derivations
+    let derive_inner = quote! {
+        Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord
+    };
+
+    // serde derivations
+    #[cfg(feature = "serde")]
+    let derive_inner = quote! {
+        #derive_inner, ::serde::Serialize, ::serde::Deserialize
+    };
+
     let doc_comment = format!(
         "Automatically generated unit-variants of [`{}`].",
         old_enum_name
     );
 
-    #[cfg(not(feature = "bitflag"))]
+    // basic implementation
+    #[cfg(not(feature = "bitflags"))]
     let new_enum = {
         let flag_arms = variants.iter().map(|variant| {
             let ident = &variant.ident;
@@ -55,29 +73,24 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
 
         quote! {
             #[doc = #doc_comment]
-            #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+            #[derive(#derive_inner)]
             pub enum #new_enum_name {
                 #(#flag_arms)*
             }
         }
     };
 
-    #[cfg(feature = "bitflag")]
+    // bitflags implementation
+    #[cfg(feature = "bitflags")]
     let new_enum = {
-        let n = variants.len();
-
-        let size = if n <= 8 {
-            quote! { u8 }
-        } else if n <= 16 {
-            quote! { u16 }
-        } else if n <= 32 {
-            quote! { u32 }
-        } else if n <= 64 {
-            quote! { u64 }
-        } else if n <= 128 {
-            quote! { u128 }
-        } else {
-            return quote! { compile_error!("Enum has too many variants."); }.into();
+        // size of the bitflag
+        let size = match variants.len() {
+            1..=8 => quote! { u8 },
+            9..=16 => quote! { u16 },
+            17..=32 => quote! { u32 },
+            33..=64 => quote! { u64 },
+            65..=128 => quote! { u128 },
+            _ => return quote! { compile_error!("Enum has too many variants."); }.into(),
         };
 
         let flag_arms = variants.iter().enumerate().map(|(i, variant)| {
@@ -90,7 +103,7 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
         quote! {
             ::bitflags::bitflags! {
                 #[doc = #doc_comment]
-                #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+                #[derive(#derive_inner)]
                 pub struct #new_enum_name: #size {
                     #(#flag_arms)*
                 }
@@ -100,6 +113,7 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
 
     let doc_comment = format!("The [`{}`] of this [`{}`].", new_enum_name, old_enum_name);
 
+    // [`kind`] method and [`From`] trait implementation
     let new_enum_impl = quote! {
         impl #old_enum_name {
             #[doc = #doc_comment]
@@ -117,6 +131,7 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
         }
     };
 
+    // putting it all together
     quote! {
         #new_enum
         #new_enum_impl

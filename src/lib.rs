@@ -28,8 +28,14 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
                     .collect();
                 InputKind::Struct(names)
             }
-            Fields::Unnamed(..) => {
-                return quote! { compile_error!("Tuple structs are not supported.") }.into();
+            Fields::Unnamed(fields) => {
+                if fields.unnamed.is_empty() {
+                    return quote! {}.into();
+                }
+                let names = (0..fields.unnamed.len())
+                    .map(|i| format_ident!("F{}", i))
+                    .collect();
+                InputKind::Struct(names)
             }
             Fields::Unit => return quote! {}.into(),
         },

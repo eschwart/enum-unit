@@ -1,61 +1,50 @@
+use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{Data, DeriveInput, Fields, parse_macro_input};
+use quote::{format_ident, quote};
+use syn::{Data, DeriveInput, Fields, Ident, parse_macro_input};
 
 #[proc_macro_derive(EnumUnit)]
 pub fn into_unit_enum(input: TokenStream) -> TokenStream {
-    // parse the input tokens into a syntax tree
     let input = parse_macro_input!(input as DeriveInput);
+    let old_enum_name = input.ident.clone();
+    let new_enum_name = format_ident!("{}Unit", old_enum_name);
 
-    // check if the input is an enum
-    let variants = if let Data::Enum(data_enum) = input.data {
-        data_enum.variants
-    } else {
-        return quote! { compile_error!("Unsupported structure (enum's only)") }.into();
-    };
-
-    // return nothing if there are no variants
-    if variants.is_empty() {
-        return quote! {}.into();
+    enum InputKind {
+        Struct(Vec<Ident>),
+        Enum(Vec<(Ident, Fields)>),
     }
 
-    // prepare names for each enumeration
-    let old_enum_name = input.ident;
-    let new_enum_name = quote::format_ident!("{}Unit", old_enum_name);
-
-    // obtain names of every variant
-    let match_arms = variants.iter().map(|variant| {
-        let ident = &variant.ident;
-
-        // Handle tuple and struct variants
-        match &variant.fields {
-            Fields::Unit => {
-                quote! {
-                    #old_enum_name::#ident => #new_enum_name::#ident,
+    let kind = match input.data {
+        Data::Struct(data) => match data.fields {
+            Fields::Named(fields_named) => {
+                if fields_named.named.is_empty() {
+                    return quote! {}.into();
                 }
+                let names = fields_named
+                    .named
+                    .into_iter()
+                    .filter_map(|f| f.ident)
+                    .map(|ident| format_ident!("{}", ident.to_string().to_case(Case::Pascal)))
+                    .collect();
+                InputKind::Struct(names)
             }
-            Fields::Unnamed(_) => {
-                quote! {
-                    #old_enum_name::#ident(..) => #new_enum_name::#ident,
-                }
+            Fields::Unnamed(..) => {
+                return quote! { compile_error!("Tuple structs are not supported.") }.into();
             }
-            Fields::Named(_) => {
-                quote! {
-                    #old_enum_name::#ident { .. } => #new_enum_name::#ident,
-                }
+            Fields::Unit => return quote! {}.into(),
+        },
+        Data::Enum(data) => {
+            if data.variants.is_empty() {
+                return quote! {}.into();
             }
+            let variants = data
+                .variants
+                .into_iter()
+                .map(|v| (v.ident, v.fields))
+                .collect();
+            InputKind::Enum(variants)
         }
-    });
-
-    // primitive derivations
-    let derive_inner = quote! {
-        Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord
-    };
-
-    // serde derivations
-    #[cfg(feature = "serde")]
-    let derive_inner = quote! {
-        #derive_inner, ::serde::Serialize, ::serde::Deserialize
+        Data::Union(..) => return quote! { compile_error!("Unions are not supported.") }.into(),
     };
 
     let doc_comment = format!(
@@ -63,37 +52,37 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
         old_enum_name
     );
 
-    // basic implementation
-    #[cfg(not(feature = "bitflags"))]
-    let new_enum = {
-        let flag_arms = variants.iter().map(|variant| {
-            let ident = &variant.ident;
-            quote! { #ident, }
-        });
+    // Trait derivation
+    let derive_inner = quote! {
+        Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord
+    };
 
-        quote! {
-            #[doc = #doc_comment]
-            #[derive(#derive_inner)]
-            pub enum #new_enum_name {
-                #(#flag_arms)*
-            }
-        }
+    #[cfg(feature = "serde")]
+    let derive_inner = quote! {
+        #derive_inner, ::serde::Serialize, ::serde::Deserialize
+    };
+
+    // Collect variant names regardless of origin
+    let variant_idents: Vec<Ident> = match &kind {
+        InputKind::Struct(fields) => fields.clone(),
+        InputKind::Enum(variants) => variants.iter().map(|(ident, _)| ident.clone()).collect(),
     };
 
     #[cfg(feature = "bitflags")]
     let new_enum = {
-        // size of the bitflag
-        let size = match variants.len() {
+        let size = match variant_idents.len() {
             1..=8 => quote! { u8 },
             9..=16 => quote! { u16 },
             17..=32 => quote! { u32 },
             33..=64 => quote! { u64 },
             65..=128 => quote! { u128 },
-            _ => return quote! { compile_error!("Enum has too many variants."); }.into(),
+            _ => {
+                return quote! { compile_error!("Too many fields or variants for bitflags."); }
+                    .into();
+            }
         };
 
-        let flag_arms = variants.iter().enumerate().map(|(i, variant)| {
-            let ident = &variant.ident;
+        let flag_consts = variant_idents.iter().enumerate().map(|(i, ident)| {
             quote! {
                 const #ident = 1 << #i;
             }
@@ -104,33 +93,60 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
                 #[doc = #doc_comment]
                 #[derive(#derive_inner)]
                 pub struct #new_enum_name: #size {
-                    #(#flag_arms)*
+                    #(#flag_consts)*
                 }
             }
         }
     };
 
-    let doc_comment = format!("The [`{}`] of this [`{}`].", new_enum_name, old_enum_name);
-
-    // [`kind`] method and [`From`] trait implementation
-    let new_enum_impl = quote! {
-        impl #old_enum_name {
+    #[cfg(not(feature = "bitflags"))]
+    let new_enum = {
+        let variants = variant_idents.iter().map(|ident| quote! { #ident, });
+        quote! {
             #[doc = #doc_comment]
-            pub const fn kind(&self) -> #new_enum_name {
-                match self {
-                    #(#match_arms)*
-                }
-            }
-        }
-
-        impl From<#old_enum_name> for #new_enum_name {
-            fn from(value: #old_enum_name) -> Self {
-                value.kind()
+            #[derive(#derive_inner)]
+            pub enum #new_enum_name {
+                #(#variants)*
             }
         }
     };
 
-    // putting it all together
+    // Only generate kind() and From<> if the original was an enum
+    let new_enum_impl = match kind {
+        InputKind::Enum(ref variants) => {
+            let match_arms = variants.iter().map(|(ident, fields)| match fields {
+                Fields::Named(_) => quote! {
+                    Self::#ident { .. } => #new_enum_name::#ident,
+                },
+                Fields::Unnamed(_) => quote! {
+                    Self::#ident(..) => #new_enum_name::#ident,
+                },
+                Fields::Unit => quote! {
+                    Self::#ident => #new_enum_name::#ident,
+                },
+            });
+
+            let doc_comment = format!("The [`{}`] of this [`{}`].", new_enum_name, old_enum_name);
+            quote! {
+                impl #old_enum_name {
+                    #[doc = #doc_comment]
+                    pub const fn kind(&self) -> #new_enum_name {
+                        match self {
+                            #(#match_arms)*
+                        }
+                    }
+                }
+
+                impl From<#old_enum_name> for #new_enum_name {
+                    fn from(value: #old_enum_name) -> Self {
+                        value.kind()
+                    }
+                }
+            }
+        }
+        _ => quote! {},
+    };
+
     quote! {
         #new_enum
         #new_enum_impl

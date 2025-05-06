@@ -19,6 +19,9 @@ struct ExampleNamedStruct {
     c: &'static str,
 }
 
+#[derive(EnumUnit)]
+struct ExampleUnnamedStruct((), u8, &'static str);
+
 // This is a valid derive but needs no test.
 #[derive(EnumUnit)]
 struct ExampleUnitStruct;
@@ -80,7 +83,7 @@ mod enum_tests {
     }
 }
 
-mod struct_tests {
+mod struct_named_tests {
     use super::*;
 
     #[test]
@@ -119,5 +122,53 @@ mod struct_tests {
         let deserialized: ExampleNamedStructUnit = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(ab, deserialized);
+    }
+}
+
+mod struct_unnamed_tests {
+    use super::*;
+
+    #[test]
+    #[cfg(feature = "bitflags")]
+    fn test_unnamed_struct_bitflags() {
+        // Combine the synthetic flags into a bitflags variable
+        let f0f1 = ExampleUnnamedStructUnit::F0 | ExampleUnnamedStructUnit::F1;
+        let f1f2 = ExampleUnnamedStructUnit::F1 | ExampleUnnamedStructUnit::F2;
+        let f0f2 = ExampleUnnamedStructUnit::F0 | ExampleUnnamedStructUnit::F2;
+
+        // Remove flags to isolate individual ones
+        let f0 = f0f1 - ExampleUnnamedStructUnit::F1;
+        let f1 = f1f2 - ExampleUnnamedStructUnit::F2;
+        let f2 = f0f2 - ExampleUnnamedStructUnit::F0;
+
+        assert_eq!(f0, ExampleUnnamedStructUnit::F0);
+        assert_eq!(f1, ExampleUnnamedStructUnit::F1);
+        assert_eq!(f2, ExampleUnnamedStructUnit::F2);
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_unnamed_struct_serde() {
+        let f0 = ExampleUnnamedStructUnit::F0;
+
+        // Serialize the value
+        let serialized = serde_json::to_string(&f0).unwrap();
+        let deserialized: ExampleUnnamedStructUnit = serde_json::from_str(&serialized).unwrap();
+
+        // Ensure that deserialization works as expected
+        assert_eq!(f0, deserialized);
+    }
+
+    #[test]
+    #[cfg(all(feature = "bitflags", feature = "serde"))]
+    fn test_unnamed_struct_serde_bitflags() {
+        let f0f1 = ExampleUnnamedStructUnit::F0 | ExampleUnnamedStructUnit::F1;
+
+        // Serialize the combined flags
+        let serialized = serde_json::to_string(&f0f1).unwrap();
+        let deserialized: ExampleUnnamedStructUnit = serde_json::from_str(&serialized).unwrap();
+
+        // Ensure the combined flags are correctly serialized and deserialized
+        assert_eq!(f0f1, deserialized);
     }
 }

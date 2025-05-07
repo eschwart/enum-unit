@@ -22,15 +22,22 @@ dependencies = [
 
 [[package]]
 name = "enum-unit"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "bitflags",
  "convert_case",
+ "enum-unit-core",
  "quote",
  "serde",
  "serde_json",
  "syn",
 ]
+
+[[package]]
+name = "enum-unit-core"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21db30833f557158437783e6d8ad0ba316107484eddd5f2523482917409457b1"
 
 [[package]]
 name = "itoa"

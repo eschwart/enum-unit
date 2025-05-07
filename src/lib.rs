@@ -1,4 +1,5 @@
 use convert_case::{Case, Casing};
+use enum_unit_core::*;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{Data, DeriveInput, Fields, Ident, parse_macro_input};
@@ -33,7 +34,7 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
                     return quote! {}.into();
                 }
                 let names = (0..fields.unnamed.len())
-                    .map(|i| format_ident!("F{}", i))
+                    .map(|i| format_ident!("{}{}", prefix(), i))
                     .collect();
                 InputKind::Struct(names)
             }

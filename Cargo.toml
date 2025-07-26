@@ -1,6 +1,6 @@
 [package]
 name = "enum-unit"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/eschwart/enum-unit"
@@ -21,7 +21,7 @@ serde = ["dep:serde", "bitflags?/serde"]
 [dependencies]
 bitflags = { version = "2.9.1", features = ["serde"], optional = true }
 convert_case = "0.8.0"
-enum-unit-core = "0.1.1"
+enum-unit-core = "0.1.2"
 quote = "1.0.40"
 serde = { version = "1.0.219", features = ["derive"], optional = true }
 syn = { version = "2.0.104", features = ["derive", "parsing", "proc-macro"] }

@@ -54,10 +54,7 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
         Data::Union(..) => return quote! { compile_error!("Unions are not supported.") }.into(),
     };
 
-    let doc_comment = format!(
-        "Automatically generated unit-variants of [`{}`].",
-        old_enum_name
-    );
+    let doc_comment = format!("Automatically generated unit-variants of [`{old_enum_name}`].");
 
     // Trait derivation
     let derive_inner = quote! {
@@ -133,7 +130,7 @@ pub fn into_unit_enum(input: TokenStream) -> TokenStream {
                 },
             });
 
-            let doc_comment = format!("The [`{}`] of this [`{}`].", new_enum_name, old_enum_name);
+            let doc_comment = format!("The [`{new_enum_name}`] of this [`{old_enum_name}`].");
             quote! {
                 impl #old_enum_name {
                     #[doc = #doc_comment]
